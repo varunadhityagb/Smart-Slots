@@ -26,9 +26,105 @@ ParkingSlot basement1[100];
 ParkingSlot basement2[100];
 ParkingInfo parkingInfo[200];
 
-// Declare pointers for the next available slot and info
-int slotPointer = 0;
+// Declare pointers for the next available info
 int infoPointer = 0;
+bool isFileOK = true;
+
+void fileChecker() {
+    // Buffer for reading lines from the file
+    char buffer[1024];
+
+    // Variables for counting rows and columns in the file
+    int row = 0;
+    int col = 0;
+
+    // Get the current time
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+
+    // Allocate memory for the file time string
+    char *file_time  = malloc(10);
+
+    // Format the file time string
+    sprintf(file_time, "%d_%d_%d.csv", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+
+    // Base file name
+    char file_name[] = "parkingInfo_";
+
+    // Append the file time to the file name
+    strcat(file_name, file_time);
+
+    // Check if the file is OK
+    if (isFileOK){
+        // Open the file for reading
+        FILE *fp = fopen(file_name, "r");
+
+        // If the file doesn't exist, create it
+        if (fp == NULL) {
+            fp = fopen(file_name, "w");
+            fprintf(fp, "Slot_Number,Vehicle_Number,Vehicle_Type,Date,Time_In,Time_Out\n");
+            fclose(fp);
+        }
+
+        // Read lines from the file
+        while (fgets(buffer, 1024, fp)) {
+            col = 0;
+            row++;
+
+            // Check the header row
+            if (row == 1) {
+                char *value = strtok(buffer, ", ");
+
+                // Check each column in the header row
+                while (value) {
+                    if (col == 0) {
+                        if (strcmp(value, "Slot_Number") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    } else if (col == 1) {
+                        if (strcmp(value, "Vehicle_Number") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    } else if (col == 2) {
+                        if (strcmp(value, "Vehicle_Type") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    } else if (col == 3) {
+                        if (strcmp(value, "Date") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    } else if (col == 4) {
+                        if (strcmp(value, "Time_In") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    } else if (col == 5) {
+                        if (strcmp(value, "Time_Out") != 0) {
+                            isFileOK = false;
+                            break;
+                        }
+                    }
+
+                    value = strtok(NULL, ", ");
+                    col++;
+                }
+            }
+            printf("\n");
+        }
+
+        // Close the file
+        fclose(fp);
+    } else {
+        // If the file is not OK, create a new file
+        FILE *fp = fopen(file_name, "w");
+        fprintf(fp, "Slot_Number,Vehicle_Number,Vehicle_Type,Date,Time_In,Time_Out\n");
+        fclose(fp);
+    }
+}
 
 // Function to increase the size of the parkingInfo array
 void incrementArrSize(ParkingInfo *arr) {
@@ -87,10 +183,23 @@ int calculateTime(char *timeIn)
     return diff;
 }
 
-
 void parkVehicle(ParkingInfo *parkingInfo) //have to add the parameters
 {
+    printf("Enter the vehicle number: ");
+    char vehicleNumber[10];
+    scanf("%s", vehicleNumber);
+    printf("Enter the vehicle type: ");
+    char vehicleType[20];
+    scanf("%s", vehicleType);
     
+    parkingInfo[0].slotNumber = 1;
+    strcpy(parkingInfo[0].vehicleNumber, "ABC123");
+    strcpy(parkingInfo[0].vehicleType, "Car");
+    strcpy(parkingInfo[0].timeIn, getTime());
+    strcpy(parkingInfo[0].timeOut, "00:00");
+    strcpy(parkingInfo[0].date, "00/00/0000");
+    infoPointer++;
+
 }
 
 void retrieveVehicle() //have to add the parameters
@@ -105,6 +214,9 @@ void main()
 {
     // Declare a boolean variable to control the loop
     bool loop = true;
+
+    fileChecker();
+
     // Start of the loop
     do {
         // Print the welcome message with some formatting
@@ -126,7 +238,7 @@ void main()
         int result = scanf("%d", &choice);
         if (result < 1) {
             // If the input is not an integer, print an error message
-            inalidInput();
+            invalidInput();
             // Clear the input buffer
             while(getchar() != '\n');
         } else {
