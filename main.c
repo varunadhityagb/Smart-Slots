@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <conio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <regex.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 // Define the ParkingSlot struct
 typedef struct {
@@ -15,7 +19,7 @@ typedef struct {
 // Define the ParkingInfo struct
 typedef struct {
     ParkingSlot parkingSlot;
-    char vehicleNumber[10];
+    char vehicleNumber[20];
     char vehicleType[20];
     char timeIn[10];
     char timeOut[10];
@@ -25,12 +29,50 @@ typedef struct {
 // Declare arrays for parking slots and parking info
 ParkingInfo parkingInfo[200];
 
-// Declare pointers for the next available info
+// global variables
 int infoPointer = 0;
 bool isFileOK = true;
-
-// Base file name
 char file_name[] = "parkingInfo_";
+pthread_t thread, thread2, thread3;
+
+
+//function for welcome_splash screen
+void welcome_splash() {
+    printf("\033[32m\033[5m__        __   _                            _          ____                       _     ____  _       _   \033[0m\n");    
+    printf("\033[32m\033[5m\\ \\      / /__| | ___ ___  _ __ ___   ___  | |_ ___   / ___| _ __ ___   __ _ _ __| |_  / ___|| | ___ | |_ ___ \033[0m\n");
+    printf("\033[32m\033[5m \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | __/ _ \\  \\___ \\| '_ ` _ \\ / _` | '__| __| \\___ \\| |/ _ \\| __/ __|\033[0m\n");
+    printf("\033[32m\033[5m  \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |  ___) | | | | | | (_| | |  | |_   ___) | | (_) | |_\\__ \\ \033[0m\n");
+    printf("\033[32m\033[5m   \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/  |____/|_| |_| |_|\\__,_|_|   \\__| |____/|_|\\___/ \\__|___/\033[0m\n");                                                                     
+}
+
+//function for parking_splash screen
+void parking_splash() {
+    printf("\033[32m\033[5m ____            _    _             \033[0m\n");
+    printf("\033[32m\033[5m|  _ \\ __ _ _ __| | _(_)_ __   __ _ \033[0m\n");
+    printf("\033[32m\033[5m| |_) / _` | '__| |/ / | '_ \\ / _` |\033[0m\n");
+    printf("\033[32m\033[5m|  __/ (_| | |  |   <| | | | | (_| |\033[0m\n");
+    printf("\033[32m\033[5m|_|   \\__,_|_|  |_|\\_\\_|_| |_|\\__, |\033[0m\n");
+    printf("\033[32m\033[5m                              |___/ \033[0m\n");                                                                  
+}
+
+//function for admin_splash screen
+void admin_splash() {
+    printf("\033[32m\033[5m__        __   _                               _       _           _         _ _ \033[0m\n");
+    printf("\033[32m\033[5m\\ \\      / /__| | ___ ___  _ __ ___   ___     / \\   __| |_ __ ___ (_)_ __   | | |\033[0m\n");
+    printf("\033[32m\033[5m \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\   / _ \\ / _` | '_ ` _ \\| | '_ \\  | | |\033[0m\n");
+    printf("\033[32m\033[5m  \\ V  V /  __/ | (_| (_) | | | | | |  __/  / ___ \\ (_| | | | | | | | | | | |_|_|\033[0m\n");
+    printf("\033[32m\033[5m   \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___| /_/   \\_\\__,_|_| |_| |_|_|_| |_| (_|_)\033[0m\n");   
+}
+
+// function for payment_splash screen
+void payment_splash() {
+    printf("\033[32m\033[5m ____                                  _   \033[0m\n");
+    printf("\033[32m\033[5m|  _ \\ __ _ _   _ _ __ ___   ___ _ __ | |_ \033[0m\n");
+    printf("\033[32m\033[5m| |_) / _` | | | | '_ ` _ \\ / _ \\ '_ \\| __|\033[0m\n");
+    printf("\033[32m\033[5m|  __/ (_| | |_| | | | | | |  __/ | | | |_ \033[0m\n");
+    printf("\033[32m\033[5m|_|   \\__,_|\\__, |_| |_| |_|\\___|_| |_|\\__|\033[0m\n");
+    printf("\033[32m\033[5m            |___/                          \033[0m\n");     
+}
 
 // Function to get the current date
 char *getDate() {
@@ -66,7 +108,7 @@ void *fileChecker(void *vargp) {
     // Check if the file is OK
     if (isFileOK){
         // Open the file for reading
-        FILE *fp = fopen(file_name, "r");
+        FILE *fp = fopen(file_name, "r+");
 
         // If the file doesn't exist, create it
         if (fp == NULL) {
@@ -76,54 +118,10 @@ void *fileChecker(void *vargp) {
         }
 
         // Read lines from the file
-        while (fgets(buffer, 1024, fp)) {
-            col = 0;
-            row++;
-
-            // Check the header row
-            if (row == 1) {
-                char *value = strtok(buffer, ", ");
-
-                // Check each column in the header row
-                while (value) {
-                    if (col == 0) {
-                        if (strcmp(value, "Slot_Number") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    } else if (col == 1) {
-                        if (strcmp(value, "Vehicle_Number") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    } else if (col == 2) {
-                        if (strcmp(value, "Vehicle_Type") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    } else if (col == 3) {
-                        if (strcmp(value, "Date") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    } else if (col == 4) {
-                        if (strcmp(value, "Time_In") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    } else if (col == 5) {
-                        if (strcmp(value, "Time_Out") != 0) {
-                            isFileOK = false;
-                            break;
-                        }
-                    }
-
-                    value = strtok(NULL, ", ");
-                    col++;
-                }
+        char *fileData = fgets(buffer, 1024, fp);
+        if (fileData == NULL) {
+            fprintf(fp, "Slot_Number,Vehicle_Number,Vehicle_Type,Date,Time_In,Time_Out\n");
             }
-        }
-
         // Close the file
         fclose(fp);
     } else {
@@ -156,7 +154,7 @@ int searchVehicle(ParkingInfo *arr, int x) {
 // Function to handle invalid input
 void invalidInput() {
     printf("\033[1m\033[5m\033[31mInvalid input. Please enter an integer.\033[0m\n");
-    sleep(2);
+    sleep(1);
     printf("\033[2J\033[1;1H");
 }
 
@@ -190,8 +188,23 @@ int calculateTime(char *timeIn)
 // Function to park a vehicle
 void parkVehicle(ParkingInfo *parkingInfo) 
 {
+    regex_t regex1, regex2;
+    int reti1, reti2;
+    char msgbuf[100];
+
+    reti1 = regcomp(&regex1, "^[A-Z]{2}[0-9]{1,2}(?:[A-Z])?(?:[A-Z]*)?[0-9]{4}$",REG_EXTENDED);
+    if (reti1) {
+        fprintf(stderr, "Could not compile regex\n");
+        exit(1);
+    }
+
+    reti2 = regcomp(&regex2, "^[0-9]{2}BH[0-9]{4}[A-Z]{2}$", REG_EXTENDED);
+    if (reti2) {
+        fprintf(stderr, "Could not compile regex\n");
+        exit(1);
+    }
+
     // Get the current date
-    pthread_t thread3;
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     char *date = malloc(10);
@@ -199,12 +212,29 @@ void parkVehicle(ParkingInfo *parkingInfo)
 
     // Prompt the user to enter the vehicle number and vehicle type
     printf("Enter the vehicle number: ");
-    char vehicleNumber[10];
+    char vehicleNumber[20];
     scanf("%s", vehicleNumber);
+    reti1 = regexec(&regex1, vehicleNumber, 0, NULL, 0);
+    reti2 = regexec(&regex2, vehicleNumber, 0, NULL, 0);
+    while ((reti1 == REG_NOMATCH) && (reti2 == REG_NOMATCH)) {
+        printf("Invalid vehicle number. Enter again: ");
+        scanf("%s", vehicleNumber);
+        reti1 = regexec(&regex1, vehicleNumber, 0, NULL, 0);
+        reti2 = regexec(&regex2, vehicleNumber, 0, NULL, 0);
+    }
+
+    // Free the memory allocated for the regex
+    regfree(&regex1);
+    regfree(&regex2);
+
     printf("Enter the vehicle type: ");
     char vehicleType[20];
     scanf("%s", vehicleType);
-
+    if (strcmp(vehicleType, "Car") != 0 && strcmp(vehicleType, "car") != 0 && strcmp(vehicleType, "Bike") != 0 && strcmp(vehicleType, "bike") != 0) {
+        printf("Invalid vehicle type. Enter Car or Bike : ");
+        scanf("%s", vehicleType);
+    }
+    //vehicleNumber[strlen(vehicleNumber)-3] = '\0';
     // Store the vehicle information in the parking info array
     parkingInfo[infoPointer].parkingSlot.slotNumber = infoPointer + 1;
     parkingInfo[infoPointer].parkingSlot.isOccupied = true;
@@ -215,10 +245,11 @@ void parkVehicle(ParkingInfo *parkingInfo)
     strcpy(parkingInfo[infoPointer].date, date);
     printf("Park your car in slot %d\n", infoPointer + 1);
     pthread_create(&thread3, NULL, fetchPointer, NULL);
-    printf("%s\n", parkingInfo[0].timeIn);
-
+    printf("Press any key to continue...\n");
+    getch();
 }
 
+// Function to retrieve a vehicle
 void retrieveVehicle(int num) //have to add the parameters
 {   
     pthread_t thread4;
@@ -227,15 +258,45 @@ void retrieveVehicle(int num) //have to add the parameters
     if (pos != -1) {
         strcpy(parkingInfo[pos].timeOut, getTime());
         int time = calculateTime(parkingInfo[pos].timeIn);
-        printf("Your vehiclea was parked in %d\n", pos + 1);
-        printf("Your car was parked for %d minutes\n", time);
         
-        //calculate the fee
+        // Calculate the fee based on vehicle type and time parked
         if (strcmp(parkingInfo[pos].vehicleType, "Car") == 0 || strcmp(parkingInfo[pos].vehicleType, "car") == 0) {
-            fee = time * 0.5;
-        } else if (strcmp(parkingInfo[pos].vehicleType, "Bus") == 0 || strcmp(parkingInfo[pos].vehicleType, "bus") == 0) {
-            fee = time * 1.0;
+            if (time <= 60) {
+                fee = 30.0;
+            } else if (60 > time > 120) {
+                fee = 40.0;
+            } else if (120 > time > 180) {
+                fee = 50.0;
+            } else {
+                fee = 70.0;
+            }
+        } else if (strcmp(parkingInfo[pos].vehicleType, "Bike") == 0 || strcmp(parkingInfo[pos].vehicleType, "bike") == 0) {
+            if (time <= 60) {
+                fee = 20.0;
+            } else if (60 > time > 120) {
+                fee = 30.0;
+            } else if (120 > time > 180) {
+                fee = 40.0;
+            } else {
+                fee = 60.0;
+            }
         }
+        
+        printf("\033[2J\033[1;1H");
+        payment_splash();
+        printf("Slot: %d\n", parkingInfo[pos].parkingSlot.slotNumber);
+        printf("Vehicle Number: %s\n", parkingInfo[pos].vehicleNumber);
+        printf("Vehicle Type: %s\n", parkingInfo[pos].vehicleType);
+        printf("Time In: %s\n", parkingInfo[pos].timeIn);
+        printf("Time Out: %s\n", parkingInfo[pos].timeOut);
+        printf("Amount to be paid: \033[4m%.2f\033[0m\n", fee);
+        
+        printf("\nPay the amount to the cashier.\n");
+        printf("Thank you for using our service.\n\n");
+        printf("Press any key to continue...\n");
+        getch();
+        printf("\033[2J\033[1;1H");
+        
         // Open the file for appending
         FILE *fp = fopen(file_name, "a");
         fprintf(fp, "%d,%s,%s,%s,%s,%s\n", parkingInfo[pos].parkingSlot.slotNumber, parkingInfo[pos].vehicleNumber, parkingInfo[pos].vehicleType, parkingInfo[pos].date, parkingInfo[pos].timeIn, parkingInfo[pos].timeOut);
@@ -255,33 +316,148 @@ void retrieveVehicle(int num) //have to add the parameters
     }
 }
 
-//function for splash screen
-void splash() {
-    printf("\033[32m\033[5m__        __   _                            _          ____                       _     ____  _       _   \033[0m\n");    
-    printf("\033[32m\033[5m\\ \\      / /__| | ___ ___  _ __ ___   ___  | |_ ___   / ___| _ __ ___   __ _ _ __| |_  / ___|| | ___ | |_ ___ \033[0m\n");
-    printf("\033[32m\033[5m \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | __/ _ \\  \\___ \\| '_ ` _ \\ / _` | '__| __| \\___ \\| |/ _ \\| __/ __|\033[0m\n");
-    printf("\033[32m\033[5m  \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |  ___) | | | | | | (_| | |  | |_   ___) | | (_) | |_\\__ \\ \033[0m\n");
-    printf("\033[32m\033[5m   \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/  |____/|_| |_| |_|\\__,_|_|   \\__| |____/|_|\\___/ \\__|___/\033[0m\n");                                                                     
+//function for parkingHistory
+void parkingHistory() {
+    DIR *dr;
+   struct dirent *en;
+   char var1[25], var2[25], var3[25], var4[25], var5[25], var6[25];
+   dr = opendir("."); //open all directory
+   if (dr) {
+      while ((en = readdir(dr)) != NULL) {
+         {
+            char filename[100];
+            char *first = strtok(en->d_name, ".");
+            char *second = strtok(NULL, ".");
+            if(second != NULL){
+               if(strcmp(second, "csv") == 0)
+               {
+                  char *first_part = strtok(en->d_name, "_");
+                  char *second_part = strtok(NULL, "_");
+                  char *third_part = strtok(NULL, "_");
+                  char *fourth_part = strtok(NULL, "_");
+                  printf("\n\033[1m\033[4mVehicles parked on %s-%s-%s\033[0m\n", second_part, third_part, fourth_part);
+                  sprintf(filename, "%s_%s_%s_%s.csv", first_part, second_part, third_part, fourth_part);
+
+                  FILE* fp = fopen(filename, "r");
+               
+                  if (!fp)
+                     printf("Can't open file\n");
+
+                  else {
+                     char buffer[1024];
+
+                     int row = 0;
+                     printf("\n\033[1mSlot\t  RegN\t\tType\t  Date\t\tTime In\tTime Out\033[0m\n");
+                     printf("---------------------------------------------------------------\n"); 
+                     while (fgets(buffer,1024, fp)) {
+                        row++;
+
+                        // To avoid printing of column
+                        // names in file can be changed
+                        // according to need
+                        if (row == 1)
+                           continue;
+
+                        // Splitting the data
+                        char* value = strtok(buffer, ", ");
+
+                        while (value) {
+                           printf("%s\t", value);
+                           value = strtok(NULL, ", ");
+                        }
+
+                        printf("\n");
+                     }
+
+                     // Close the file
+                     fclose(fp);
+                  }
+               } 
+            }
+         }
+      }
+   }    
+   closedir(dr); //close all directory
+   printf("Press any key to continue...\n");
+   getch();
 }
-// Main function
-void main()
+    
+
+//function for the admin menu
+void admin()
 {
     // Declare a boolean variable to control the loop
     bool loop = true;
+
+    // Start of the loop
+    do {
+        printf("\033[2J\033[1;1H");
+        admin_splash();
+        // Print the menu options
+        printf("\n\n1. View Parking Info\n");
+        printf("2. View Parking History\n");
+        printf("3. Exit\n");
+
+        // Prompt the user to enter their choice
+        printf("Enter your choice: ");
+
+        // Declare a variable to hold the user's choice
+        int choice;
+
+        // Read the user's choice and check if it's an integer
+        int result = scanf("%d", &choice);
+        if (result < 1) {
+            // If the input is not an integer, print an error message
+            invalidInput();
+            // Clear the input buffer
+            while(getchar() != '\n');
+        } else {
+            // Process the user's choice
+            if (choice == 1) {
+                int parkCount=0;
+                printf("\033[2J\033[1;1H");
+                for (int i = 0; i < 200; i++) {
+                    if (parkingInfo[i].parkingSlot.isOccupied == true) {
+                        printf("%d\t\t%s\t\t%s\t\t%s\t%s\t%s\n", parkingInfo[i].parkingSlot.slotNumber, parkingInfo[i].vehicleNumber, parkingInfo[i].vehicleType, parkingInfo[i].date, parkingInfo[i].timeIn, parkingInfo[i].timeOut);
+                        parkCount++;
+                    }
+                }
+                printf("Vehile Count: %d\n", parkCount);
+                printf("Press any key to continue...\n");
+                getch();
+            } else if (choice == 2) {
+                printf("\033[2J\033[1;1H");
+                parkingHistory();
+            } else if (choice == 3) {
+                printf("\033[2J\033[1;1H");
+                loop = false;
+            } else {
+                // If the choice is not 1, 2, or 3, print an error message
+                printf("Invalid choice. Enter 1 or 2 or 3\n");
+            }
+        }
+    } while (loop); // End of the loop
+}
+
+// Main function
+void main()
+{
+    // Code inside the block
+
+    // Declare a boolean variable to control the loop
+    bool loop = true;
     
-    pthread_t thread, thread2;
     pthread_create(&thread, NULL, fileChecker, NULL);
 
     // Start of the loop
     do {
-        splash();
-        sleep(2);
+        printf("\033[2J\033[1;1H");
+        welcome_splash();
 
         // Print the menu options
-        printf("1. Park\n");
+        printf("\n\n1. Park\n");
         printf("2. Retrieve Car from Parking\n");
-        printf("3. Temp\n");
-        printf("4. Exit\n");
+        printf("3. Exit\n");
 
         // Prompt the user to enter their choice
         printf("Enter your choice: ");
@@ -302,30 +478,26 @@ void main()
             // Process the user's choice
             if (choice == 1) {
                 printf("\033[2J\033[1;1H");
-                // If the choice is 1, park the vehicle
+                parking_splash();
                 parkVehicle(parkingInfo);
             } else if (choice == 2) {
                 printf("\033[2J\033[1;1H");
-                // If the choice is 2, retrieve the vehicle
                 printf("Enter the slot number: ");
                 int slotNumber;
                 scanf("%d", &slotNumber);
                 retrieveVehicle(slotNumber);
-            } else if (choice == 3) {
+            } else if (choice == 3){
                 printf("\033[2J\033[1;1H");
-            } else if (choice == 4){
-                printf("\033[2J\033[1;1H");
-                // If the choice is 4, exit the loop
                 loop = false;
-            } else if (choice == 5) {
+            } else if (choice == 101) {
                 printf("\033[2J\033[1;1H");
-                // If the choice is 5, exit the loop
-                splash();
-                sleep(1);
+                welcome_splash();
                 char ch[10];
                 scanf("%s", ch);
-                if (strcmp(ch, "exit") == 0) {
-                    printf("Welcome Admin!!\n");
+                if (strcmp(ch, "aie") == 0) {
+                    printf("\033[2J\033[1;1H");
+                    admin();
+                    printf("\033[2J\033[1;1H");
                 } 
             }else {
                 // If the choice is not 1, 2, 3, or 4, print an error message
@@ -333,4 +505,7 @@ void main()
             }
         }
     } while (loop); // End of the loop   
+    pthread_join(thread, NULL);
+    pthread_join(thread2, NULL);
+    pthread_join(thread3, NULL);
 }
