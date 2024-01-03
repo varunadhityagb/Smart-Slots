@@ -74,11 +74,12 @@ void payment_splash() {
 }
 
 // Function to get the current date
-char *getDate() {
+char *getDate(int n) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     char *date = malloc(10);
-    sprintf(date, "%d_%d_%d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+    if (n == 0) sprintf(date, "%d_%d_%d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+    else sprintf(date, "%d/%d/%d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
     return date;
 }
 
@@ -102,7 +103,7 @@ void *fileChecker(void *vargp) {
     struct tm tm = *localtime(&t);
 
     // Get date
-    char *file_date = getDate();
+    char *file_date = getDate(0);
 
     // Append the file date to the file name
     strcat(file_name, file_date);
@@ -230,10 +231,7 @@ void parkVehicle(ParkingInfo *parkingInfo) {
     }
 
     // Get the current date
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    char *date = malloc(10);
-    sprintf(date, "%d/%d/%d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+    char *date = getDate(1);
 
     // Prompt the user to enter the vehicle number and vehicle type
     printf("Enter the vehicle number: ");
@@ -361,7 +359,7 @@ void retrieveVehicle(int num) {
 
 //function for parkingHistory
 /**
-* Parking History Print parking history to standard output for each park
+* Print parking history to standard output for each parking
 */
 void parkingHistory() {
     DIR *dr;
@@ -428,6 +426,23 @@ void parkingHistory() {
     getch();
 }
 
+//function for viewParkingInfo
+/**
+* Print parking info to standard output
+*/
+void viewParkingInfo() {
+    int parkCount=0;
+    for (int i = 0; i < 200; i++) {
+        if (parkingInfo[i].parkingSlot.isOccupied == true) {
+            printf("%d\t\t%s\t\t%s\t\t%s\t%s\n", parkingInfo[i].parkingSlot.slotNumber, parkingInfo[i].vehicleNumber, parkingInfo[i].vehicleType, parkingInfo[i].date, parkingInfo[i].timeIn);
+            parkCount++;
+        }
+    }
+    printf("Vehile Count: %d\n", parkCount);
+    printf("Press any key to continue...\n");
+    getch();
+}
+
 //function for the admin menu
 /**
 * Administrative Loop This is the main loop for the administration menu.
@@ -463,17 +478,8 @@ void admin() {
         } else {
             // Process the user's choice
             if (choice == 1) {
-                int parkCount=0;
                 printf("\033[2J\033[1;1H");
-                for (int i = 0; i < 200; i++) {
-                    if (parkingInfo[i].parkingSlot.isOccupied == true) {
-                        printf("%d\t\t%s\t\t%s\t\t%s\t%s\n", parkingInfo[i].parkingSlot.slotNumber, parkingInfo[i].vehicleNumber, parkingInfo[i].vehicleType, parkingInfo[i].date, parkingInfo[i].timeIn);
-                        parkCount++;
-                    }
-                }
-                printf("Vehile Count: %d\n", parkCount);
-                printf("Press any key to continue...\n");
-                getch();
+                viewParkingInfo();
             } else if (choice == 2) {
                 printf("\033[2J\033[1;1H");
                 parkingHistory();
@@ -490,8 +496,6 @@ void admin() {
 
 // Main function
 void main() {
-    // Code inside the block
-
     // Declare a boolean variable to control the loop
     bool loop = true;
     
