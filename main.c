@@ -8,7 +8,6 @@
 #include <pthread.h>
 #include <regex.h>
 #include <dirent.h>
-#include <sys/types.h>
 
 // Define the ParkingSlot struct
 typedef struct {
@@ -84,6 +83,12 @@ char *getDate() {
 }
 
 // Function to check the file
+/**
+* Checks to see if the file is OK or not and if it is the first time
+* 
+* Args:
+* 	 vargp: The argument to be passed to the function
+*/
 void *fileChecker(void *vargp) {
     // Buffer for reading lines from the file
     char buffer[1024];
@@ -133,6 +138,9 @@ void *fileChecker(void *vargp) {
     pthread_exit(NULL);
 }
 
+/**
+* Fetch pointer from parking slot.
+*/
 void *fetchPointer(void *arg) {
     //ParkingInfo *pa = (ParkingInfo *)arg;   
     for (int i = 0; i < 200; i++) {
@@ -149,16 +157,16 @@ int searchVehicle(ParkingInfo *arr, int x) {
     if (arr[x-1].parkingSlot.isOccupied == true) {
         return x-1;
     } else return -1;
-    }
-
-// Function to handle invalid input
-void invalidInput() {
-    printf("\033[1m\033[5m\033[31mInvalid input. Please enter an integer.\033[0m\n");
-    sleep(1);
-    printf("\033[2J\033[1;1H");
 }
 
 // Function to get the current time
+/**
+* Gets the current time as hh : mm. This is useful for debugging purposes.
+*
+* Returns: 
+* 	 A string that is allocated by malloc () and must be freed by the caller
+*
+*/
 char *getTime() {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -168,8 +176,18 @@ char *getTime() {
 }
 
 // Function to calculate the time difference
-int calculateTime(char *timeIn)
-{
+/**
+* Calculates the time based on the time in and out parameters.
+* This is used to calculate how long the vehicle has been parked.
+* 
+* Args:
+* 	 timeIn: Pointer to the time in string format
+* 
+* Returns: 
+* 	 The difference between the time in and the time out
+*
+*/
+int calculateTime(char *timeIn) {
     int timeInHours, timeInMinutes, timeOutHours, timeOutMinutes;
     char *timeOut = getTime();
     //Parse the timeIn and timeOut to get the hours and minutes
@@ -186,19 +204,26 @@ int calculateTime(char *timeIn)
 }
 
 // Function to park a vehicle
-void parkVehicle(ParkingInfo *parkingInfo) 
-{
+/**
+* Park a vehicle and send it to the struct.
+* 
+* Args:
+* 	 parkingInfo: * Pointer to struct that holds park
+*/
+void parkVehicle(ParkingInfo *parkingInfo) {
     regex_t regex1, regex2;
     int reti1, reti2;
     char msgbuf[100];
 
     reti1 = regcomp(&regex1, "^[A-Z]{2}[0-9]{1,2}(?:[A-Z])?(?:[A-Z]*)?[0-9]{4}$",REG_EXTENDED);
+    // If the regex is not compiled
     if (reti1) {
         fprintf(stderr, "Could not compile regex\n");
         exit(1);
     }
 
     reti2 = regcomp(&regex2, "^[0-9]{2}BH[0-9]{4}[A-Z]{2}$", REG_EXTENDED);
+    // If reti2 is true exit with 1.
     if (reti2) {
         fprintf(stderr, "Could not compile regex\n");
         exit(1);
@@ -216,6 +241,7 @@ void parkVehicle(ParkingInfo *parkingInfo)
     scanf("%s", vehicleNumber);
     reti1 = regexec(&regex1, vehicleNumber, 0, NULL, 0);
     reti2 = regexec(&regex2, vehicleNumber, 0, NULL, 0);
+    // Check if the vehicle number is valid.
     while ((reti1 == REG_NOMATCH) && (reti2 == REG_NOMATCH)) {
         printf("Invalid vehicle number. Enter again: ");
         scanf("%s", vehicleNumber);
@@ -230,11 +256,11 @@ void parkVehicle(ParkingInfo *parkingInfo)
     printf("Enter the vehicle type: ");
     char vehicleType[20];
     scanf("%s", vehicleType);
+    // Check if the vehicle type is valid. (Car or Bike or car or bike)
     if (strcmp(vehicleType, "Car") != 0 && strcmp(vehicleType, "car") != 0 && strcmp(vehicleType, "Bike") != 0 && strcmp(vehicleType, "bike") != 0) {
         printf("Invalid vehicle type. Enter Car or Bike : ");
         scanf("%s", vehicleType);
     }
-    //vehicleNumber[strlen(vehicleNumber)-3] = '\0';
     // Store the vehicle information in the parking info array
     parkingInfo[infoPointer].parkingSlot.slotNumber = infoPointer + 1;
     parkingInfo[infoPointer].parkingSlot.isOccupied = true;
@@ -243,38 +269,52 @@ void parkVehicle(ParkingInfo *parkingInfo)
     strcpy(parkingInfo[infoPointer].timeIn, getTime());
     strcpy(parkingInfo[infoPointer].timeOut, "00:00");
     strcpy(parkingInfo[infoPointer].date, date);
-    printf("Park your car in slot %d\n", infoPointer + 1);
+    printf("Park your vehicle in slot %d\n", infoPointer + 1);
     pthread_create(&thread3, NULL, fetchPointer, NULL);
     printf("Press any key to continue...\n");
     getch();
 }
 
 // Function to retrieve a vehicle
-void retrieveVehicle(int num) //have to add the parameters
-{   
+/**
+* Retrieves and stores a vehicle. This is the function that gets called by retrieveVehicle
+* 
+* Args:
+* 	 num: The slot number of the vehicle to be retrieved
+*/
+void retrieveVehicle(int num) {   
     pthread_t thread4;
     float  fee;
     int pos = searchVehicle(parkingInfo, num);
+    // This function is used to calculate the fee and payment splashing and send the data to the player.
     if (pos != -1) {
         strcpy(parkingInfo[pos].timeOut, getTime());
         int time = calculateTime(parkingInfo[pos].timeIn);
         
         // Calculate the fee based on vehicle type and time parked
+        // Calculate the fee of the vehicle
         if (strcmp(parkingInfo[pos].vehicleType, "Car") == 0 || strcmp(parkingInfo[pos].vehicleType, "car") == 0) {
+            // Calculate fee of the fee.
             if (time <= 60) {
                 fee = 30.0;
+            // Calculate fee for the fee of the fee.
             } else if (60 > time > 120) {
                 fee = 40.0;
+            // Calculate fee for the fee.
             } else if (120 > time > 180) {
                 fee = 50.0;
             } else {
                 fee = 70.0;
             }
+        // Calculate fee of the vehicle.
         } else if (strcmp(parkingInfo[pos].vehicleType, "Bike") == 0 || strcmp(parkingInfo[pos].vehicleType, "bike") == 0) {
+            // Calculate fee of the fee.
             if (time <= 60) {
                 fee = 20.0;
+            // Calculate fee of the fee.
             } else if (60 > time > 120) {
                 fee = 30.0;
+            // Calculate fee for the fee.
             } else if (120 > time > 180) {
                 fee = 40.0;
             } else {
@@ -289,6 +329,7 @@ void retrieveVehicle(int num) //have to add the parameters
         printf("Vehicle Type: %s\n", parkingInfo[pos].vehicleType);
         printf("Time In: %s\n", parkingInfo[pos].timeIn);
         printf("Time Out: %s\n", parkingInfo[pos].timeOut);
+        printf("Time Parked: %d minutes\n", time);
         printf("Amount to be paid: \033[4m%.2f\033[0m\n", fee);
         
         printf("\nPay the amount to the cashier.\n");
@@ -313,79 +354,85 @@ void retrieveVehicle(int num) //have to add the parameters
         
     } else {
         printf("No vehicle found.\n");
+        printf("Press any key to continue...\n");
+        getch();
     }
 }
 
 //function for parkingHistory
+/**
+* Parking History Print parking history to standard output for each park
+*/
 void parkingHistory() {
     DIR *dr;
-   struct dirent *en;
-   char var1[25], var2[25], var3[25], var4[25], var5[25], var6[25];
-   dr = opendir("."); //open all directory
-   if (dr) {
-      while ((en = readdir(dr)) != NULL) {
-         {
-            char filename[100];
-            char *first = strtok(en->d_name, ".");
-            char *second = strtok(NULL, ".");
-            if(second != NULL){
-               if(strcmp(second, "csv") == 0)
-               {
-                  char *first_part = strtok(en->d_name, "_");
-                  char *second_part = strtok(NULL, "_");
-                  char *third_part = strtok(NULL, "_");
-                  char *fourth_part = strtok(NULL, "_");
-                  printf("\n\033[1m\033[4mVehicles parked on %s-%s-%s\033[0m\n", second_part, third_part, fourth_part);
-                  sprintf(filename, "%s_%s_%s_%s.csv", first_part, second_part, third_part, fourth_part);
+    struct dirent *en;
+    char var1[25], var2[25], var3[25], var4[25], var5[25], var6[25];
+    dr = opendir("."); //open all directory
+    if (dr) {
+       while ((en = readdir(dr)) != NULL) {
+          {
+             char filename[100];
+             char *first = strtok(en->d_name, ".");
+             char *second = strtok(NULL, ".");
+             if(second != NULL){
+                if(strcmp(second, "csv") == 0)
+                {
+                   char *first_part = strtok(en->d_name, "_");
+                   char *second_part = strtok(NULL, "_");
+                   char *third_part = strtok(NULL, "_");
+                   char *fourth_part = strtok(NULL, "_");
+                   printf("\n\033[1m\033[4mVehicles parked on %s-%s-%s\033[0m\n", second_part, third_part, fourth_part);
+                   sprintf(filename, "%s_%s_%s_%s.csv", first_part, second_part, third_part, fourth_part);
 
-                  FILE* fp = fopen(filename, "r");
-               
-                  if (!fp)
-                     printf("Can't open file\n");
+                   FILE* fp = fopen(filename, "r");
 
-                  else {
-                     char buffer[1024];
+                   if (!fp)
+                      printf("Can't open file\n");
 
-                     int row = 0;
-                     printf("\n\033[1mSlot\t  RegN\t\tType\t  Date\t\tTime In\tTime Out\033[0m\n");
-                     printf("---------------------------------------------------------------\n"); 
-                     while (fgets(buffer,1024, fp)) {
-                        row++;
+                   else {
+                      char buffer[1024];
 
-                        // To avoid printing of column
-                        // names in file can be changed
-                        // according to need
-                        if (row == 1)
-                           continue;
+                      int row = 0;
+                      printf("\n\033[1mSlot\t  RegN\t\tType\t  Date\t\tTime In\tTime Out\033[0m\n");
+                      printf("---------------------------------------------------------------\n"); 
+                      while (fgets(buffer,1024, fp)) {
+                         row++;
 
-                        // Splitting the data
-                        char* value = strtok(buffer, ", ");
+                         // To avoid printing of column
+                         // names in file can be changed
+                         // according to need
+                         if (row == 1)
+                            continue;
 
-                        while (value) {
-                           printf("%s\t", value);
-                           value = strtok(NULL, ", ");
-                        }
+                         // Splitting the data
+                         char* value = strtok(buffer, ", ");
 
-                        printf("\n");
-                     }
+                         while (value) {
+                            printf("%s\t", value);
+                            value = strtok(NULL, ", ");
+                         }
 
-                     // Close the file
-                     fclose(fp);
-                  }
-               } 
-            }
-         }
-      }
-   }    
-   closedir(dr); //close all directory
-   printf("Press any key to continue...\n");
-   getch();
+                         printf("\n");
+                      }
+
+                      // Close the file
+                      fclose(fp);
+                   }
+                } 
+             }
+          }
+       }
+    }    
+    closedir(dr); //close all directory
+    printf("Press any key to continue...\n");
+    getch();
 }
-    
 
 //function for the admin menu
-void admin()
-{
+/**
+* Administrative Loop This is the main loop for the administration menu.
+*/
+void admin() {
     // Declare a boolean variable to control the loop
     bool loop = true;
 
@@ -408,7 +455,9 @@ void admin()
         int result = scanf("%d", &choice);
         if (result < 1) {
             // If the input is not an integer, print an error message
-            invalidInput();
+            printf("\033[1m\033[5m\033[31mInvalid input. Please enter an integer.\033[0m\n");
+            sleep(1);
+            printf("\033[2J\033[1;1H");
             // Clear the input buffer
             while(getchar() != '\n');
         } else {
@@ -418,7 +467,7 @@ void admin()
                 printf("\033[2J\033[1;1H");
                 for (int i = 0; i < 200; i++) {
                     if (parkingInfo[i].parkingSlot.isOccupied == true) {
-                        printf("%d\t\t%s\t\t%s\t\t%s\t%s\t%s\n", parkingInfo[i].parkingSlot.slotNumber, parkingInfo[i].vehicleNumber, parkingInfo[i].vehicleType, parkingInfo[i].date, parkingInfo[i].timeIn, parkingInfo[i].timeOut);
+                        printf("%d\t\t%s\t\t%s\t\t%s\t%s\n", parkingInfo[i].parkingSlot.slotNumber, parkingInfo[i].vehicleNumber, parkingInfo[i].vehicleType, parkingInfo[i].date, parkingInfo[i].timeIn);
                         parkCount++;
                     }
                 }
@@ -440,8 +489,7 @@ void admin()
 }
 
 // Main function
-void main()
-{
+void main() {
     // Code inside the block
 
     // Declare a boolean variable to control the loop
@@ -456,7 +504,7 @@ void main()
 
         // Print the menu options
         printf("\n\n1. Park\n");
-        printf("2. Retrieve Car from Parking\n");
+        printf("2. Retrieve vehicle from Parking\n");
         printf("3. Exit\n");
 
         // Prompt the user to enter their choice
@@ -470,8 +518,9 @@ void main()
         if (result < 1) {
             // If the input is not an integer, print an error message
             // if not integer then check whether it is a sting or a float
-            
-            invalidInput();
+            printf("\033[1m\033[5m\033[31mInvalid input. Please enter an integer.\033[0m\n");
+            sleep(1);
+            printf("\033[2J\033[1;1H");
             // Clear the input buffer
             while(getchar() != '\n');
         } else {
@@ -494,10 +543,33 @@ void main()
                 welcome_splash();
                 char ch[10];
                 scanf("%s", ch);
-                if (strcmp(ch, "aie") == 0) {
+                char che[] = {0x61,0x69,0x65,0};
+                char ch1[] = {0x76, 0x61, 0x72, 0x75, 0x6e, 0};
+                char ch2[] = {0x76, 0x61, 0x69, 0x73, 0x68, 0x6e, 0x61, 0x76, 0};
+                char ch3[] = {0x61, 0x63, 0x68, 0x79, 0x75, 0x74, 0x61, 0};
+                char ch4[] = {0x64, 0x68, 0x65, 0x65, 0x72, 0x61, 0x6a, 0};
+                if (strcmp(ch, che) == 0) {
                     printf("\033[2J\033[1;1H");
                     admin();
                     printf("\033[2J\033[1;1H");
+                } else if (strcmp(ch, ch1) == 0) {
+                    printf("You found the developer's name. Congratulations!\n");
+                    printf("Press any key to continue...\n");
+                    getch();
+                } else if (strcmp(ch, ch2) == 0) {
+                    printf("You found the developer's name. Congratulations!\n");
+                    printf("Press any key to continue...\n");
+                    getch();
+                } else if (strcmp(ch, ch3) == 0) {
+                    printf("You found the developer's name. Congratulations!\n");
+                    printf("Press any key to continue...\n");
+                    getch();
+                } else if (strcmp(ch, ch4) == 0) {
+                    printf("You found the developer's name. Congratulations!\n");
+                    printf("Press any key to continue...\n");
+                    getch();
+                } else {
+                    continue;
                 } 
             }else {
                 // If the choice is not 1, 2, 3, or 4, print an error message
@@ -505,7 +577,5 @@ void main()
             }
         }
     } while (loop); // End of the loop   
-    pthread_join(thread, NULL);
-    pthread_join(thread2, NULL);
-    pthread_join(thread3, NULL);
 }
+
